@@ -20,7 +20,6 @@ def quotation_create(request):
         client = request.POST.get('client')
         template_id = request.POST.get('template')
 
-        # Validation
         if not title:
             messages.error(request, "Title দেওয়া বাধ্যতামূলক।")
             return redirect('quotation_create')
@@ -31,7 +30,6 @@ def quotation_create(request):
             template_id=template_id
         )
 
-        # Collect form data
         group_names = request.POST.getlist('group_name[]')
         descriptions = request.POST.getlist('description[]')
         qtys = request.POST.getlist('qty[]')
@@ -48,15 +46,17 @@ def quotation_create(request):
         grand_total = 0
 
         for i in range(len(descriptions)):
-            desc = descriptions[i].strip() if i < len(descriptions) else ""
+            desc = descriptions[i].strip()
             grp = group_names[i].strip() if i < len(group_names) else ""
-            qty = float(qtys[i]) if i < len(qtys) and qtys[i] else 0
-            unit = units[i] if i < len(units) else ""
-            price = float(prices[i]) if i < len(prices) and prices[i] else 0
-            total = float(totals[i]) if i < len(totals) and totals[i] else (qty * price)
+            qty = qtys[i] or ""
+            unit = units[i] or ""
+            price = float(prices[i]) if prices[i] else 0
+            total = float(totals[i]) if totals[i] else 0
 
             if grp:
-                current_group = QuotationGroup.objects.create(quotation=quotation, name=grp)
+                current_group = QuotationGroup.objects.create(
+                    quotation=quotation, name=grp
+                )
 
             if desc and current_group:
                 QuotationItem.objects.create(
@@ -71,7 +71,6 @@ def quotation_create(request):
 
         quotation.total_amount = grand_total
         quotation.save()
-
         messages.success(request, "Quotation সফলভাবে তৈরি হয়েছে ✅")
         return redirect('quotation_view', quotation.id)
 
