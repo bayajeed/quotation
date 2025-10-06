@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}View Quotation{% endblock %}
+{% block content %}
+
+<body class="p-4">
+<div class="d-flex justify-content-between">
+  <h3>{{ quotation.title }}</h3>
+  <button onclick="window.print()" class="btn btn-secondary">🖨 Print</button>
+</div>
+<p><strong>Client:</strong> {{ quotation.client_name }}</p>
+<p><strong>Date:</strong> {{ quotation.created_at|date:"d M, Y" }}</p>
+
+{% for group in quotation.groups.all %}
+  <h5 class="mt-4">{{ group.name }}</h5>
+  <table class="table table-bordered">
+    <thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Unit Price</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for item in group.items.all %}
+        <tr>
+          <td>{{ item.description }}</td>
+          <td>{{ item.qty }}</td>
+          <td>{{ item.unit }}</td>
+          <td>{{ item.unit_price }}</td>
+          <td>{{ item.total_price }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endfor %}
+</body>
+
+{% endblock %}

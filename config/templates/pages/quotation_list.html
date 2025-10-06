@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Quotations List{% endblock %}
+{% block content %}
+<h3>Saved Quotations</h3>
+<h2>All Quotations</h2>
+<table border="1" cellspacing="0" cellpadding="5">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Client</th>
+            <th>Date</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for q in quotations %}
+        <tr>
+            <td>{{ q.id }}</td>
+            <td>{{ q.title }}</td>
+            <td>{{ q.client_name }}</td>
+            <td>{{ q.created_at|date:"d M, Y" }}</td>
+            <td>
+                <a href="{% url 'quotation_view' q.id %}">View</a> |
+                <a href="{% url 'quotation_pdf' q.id %}">PDF</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
