@@ -10,8 +10,9 @@ from .models import (
 )
 from .serializers import QuotationTemplateSerializer, QuotationSerializer
 from .forms import (
-    QuotationForm, ItemForm, ItemGroupForm, UnitForm
+                QuotationForm, ItemForm, ItemGroupForm, UnitForm
 )
+
 import json
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
