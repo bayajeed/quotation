@@ -1,33 +1,56 @@
 from django.contrib import admin
-from .models import QuotationTemplate, QuotationTemplateItem, Quotation, QuotationItem
-
-admin.site.register(QuotationTemplate)
-admin.site.register(QuotationTemplateItem)
-admin.site.register(Quotation)
-admin.site.register(QuotationItem)
-
+from .models import (
+    Quotation, QuotationGroup, QuotationItem,
+    QuotationTemplate, QuotationTemplateItem,
+    Item, ItemGroup, Unit
+)
 
 
+class QuotationItemInline(admin.TabularInline):
+    model = QuotationItem
+    extra = 1
+    autocomplete_fields = ['item']
 
 
+class QuotationGroupInline(admin.TabularInline):
+    model = QuotationGroup
+    extra = 1
 
 
-# from django.contrib import admin
-# from .models import Quotation, QuotationPart, QuotationItem
+@admin.register(Quotation)
+class QuotationAdmin(admin.ModelAdmin):
+    list_display = ('title', 'client_name', 'created_at', 'total_amount')
+    inlines = [QuotationGroupInline]
+    search_fields = ('title', 'client_name')
 
-# class ItemInline(admin.TabularInline):
-#     model = QuotationItem
-#     extra = 0
 
-# class PartInline(admin.TabularInline):
-#     model = QuotationPart
-#     extra = 0
+@admin.register(QuotationGroup)
+class QuotationGroupAdmin(admin.ModelAdmin):
+    list_display = ('name', 'quotation', 'subtotal')
+    inlines = [QuotationItemInline]
+    search_fields = ('name',)
 
-# @admin.register(Quotation)
-# class QuotationAdmin(admin.ModelAdmin):
-#     list_display = ('project_name', 'client_name', 'created_at', 'total_amount_display')
-#     inlines = [PartInline]  # user may instead go into parts separately
 
-#     def total_amount_display(self, obj):
-#         return obj.total_amount()
-#     total_amount_display.short_description = 'Total (TK)'
+class QuotationTemplateItemInline(admin.TabularInline):
+    model = QuotationTemplateItem
+    extra = 1
+    fields = ('item', 'qty', 'unit_price')
+    autocomplete_fields = ['item']
+
+
+@admin.register(QuotationTemplate)
+class QuotationTemplateAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    inlines = [QuotationTemplateItemInline]
+    search_fields = ('name',)
+
+
+@admin.register(Item)
+class ItemAdmin(admin.ModelAdmin):
+    list_display = ('name', 'group', 'unit', 'unit_price')
+    search_fields = ('name', 'description')
+    list_filter = ('group', 'unit')
+
+
+admin.site.register(Unit)
+admin.site.register(ItemGroup)

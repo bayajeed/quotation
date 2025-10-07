@@ -1,122 +1,198 @@
 {% extends 'base.html' %}
+
+{% block title %}{% if form.instance.pk %}Edit{% else %}Create{% endif %} Quotation{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-    <h3>🧾 নতুন Quotation তৈরি</h3>
-    <form method="POST" id="quotationForm">
+    <h1>{% if form.instance.pk %}Edit{% else %}Create{% endif %} Quotation</h1>
+
+    <form method="post" id="quotationForm">
         {% csrf_token %}
-        
-        <div class="mb-3">
-            <label>Quotation Title:</label>
-            <input type="text" name="title" class="form-control" required>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                {{ form.title.label_tag }}
+                {{ form.title }}
+            </div>
+            <div class="col-md-6">
+                {{ form.client_name.label_tag }}
+                {{ form.client_name }}
+            </div>
         </div>
 
-        <div class="mb-3">
-            <label>Client Name:</label>
-            <input type="text" name="client" class="form-control">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="template" class="form-label">Load from Template</label>
+                <select id="template" class="form-select">
+                    <option value="">Select a template</option>
+                    {% for template in templates %}
+                        <option value="{{ template.pk }}">{{ template.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
-
-        <div class="mb-3">
-            <label>Select Template:</label>
-            <select name="template" id="templateSelect" class="form-control">
-                <option value="">-- Choose Template --</option>
-                {% for t in templates %}
-                <option value="{{ t.id }}">{{ t.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <div id="itemContainer">
-            <!-- Groups and items will be loaded dynamically here -->
-        </div>
-
-        <button type="button" class="btn btn-sm btn-success" id="addGroupBtn">➕ Add New Group</button>
 
         <hr>
-        <button type="submit" class="btn btn-primary">💾 Save Quotation</button>
+
+        <div id="groups-container"></div>
+
+        <div class="d-flex justify-content-between mt-3">
+            <button type="button" class="btn btn-secondary" id="addGroup">Add Group</button>
+            <div class="text-end">
+                <h3>Grand Total: <span id="grand-total">0.00</span></h3>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary mt-3">Save Quotation</button>
     </form>
-</div>
 
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-    const templateSelect = document.getElementById("templateSelect");
-    const itemContainer = document.getElementById("itemContainer");
-    const addGroupBtn = document.getElementById("addGroupBtn");
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const templateSelect = document.getElementById('template');
+            const groupsContainer = document.getElementById('groups-container');
+            const addGroupBtn = document.getElementById('addGroup');
+            const grandTotalSpan = document.getElementById('grand-total');
+            const quotation = {{ quotation_json|safe|default:'null' }};
+            const units = [{% for unit in units %}{ id: {{ unit.pk }}, name: '{{ unit.name }}' },{% endfor %}];
 
-    // Template change করলে AJAX call হবে
-    templateSelect.addEventListener("change", function () {
-        const templateId = this.value;
-        if (!templateId) return;
+            if (quotation) {
+                quotation.groups.forEach(group => {
+                    addGroup(group.name, group.items);
+                });
+            }
 
-        fetch(`/load-template-items/${templateId}/`)
-            .then(res => res.json())
-            .then(data => {
-                itemContainer.innerHTML = "";
-                for (const [group, items] of Object.entries(data.groups)) {
-                    addGroup(group, items);
+            templateSelect.addEventListener('change', function() {
+                const templateId = this.value;
+                if (templateId) {
+                    fetch(`/api/templates/${templateId}/`)
+                        .then(response => response.json())
+                        .then(data => {
+                            groupsContainer.innerHTML = '';
+                            const groups = {};
+                            data.items.forEach(item => {
+                                if (!groups[item.item.group.name]) {
+                                    groups[item.item.group.name] = [];
+                                }
+                                groups[item.item.group.name].push(item);
+                            });
+
+                            for (const groupName in groups) {
+                                addGroup(groupName, groups[groupName]);
+                            }
+                            updateGrandTotal();
+                        });
                 }
             });
-    });
 
-    // Add group manually
-    addGroupBtn.addEventListener("click", () => addGroup(""));
-
-    function addGroup(groupName = "", items = []) {
-        const groupDiv = document.createElement("div");
-        groupDiv.classList.add("border", "p-3", "mb-3", "rounded");
-        groupDiv.innerHTML = `
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <input type="text" name="group_name[]" class="form-control form-control-sm w-50" placeholder="Group Name" value="${groupName}">
-                <button type="button" class="btn btn-danger btn-sm remove-group">❌</button>
-            </div>
-            <table class="table table-bordered">
-                <thead>
-                    <tr>
-                        <th>Description</th><th>Qty</th><th>Unit</th><th>Unit Price</th><th>Total</th><th></th>
-                    </tr>
-                </thead>
-                <tbody class="item-body"></tbody>
-            </table>
-            <button type="button" class="btn btn-sm btn-outline-primary add-item">➕ Add Item</button>
-        `;
-        itemContainer.appendChild(groupDiv);
-
-        const itemBody = groupDiv.querySelector(".item-body");
-        const addItemBtn = groupDiv.querySelector(".add-item");
-
-        // Load existing items (if template loaded)
-        items.forEach(it => addItem(itemBody, it.description, it.qty, it.unit, it.unit_price));
-
-        // Add new item manually
-        addItemBtn.addEventListener("click", () => addItem(itemBody));
-
-        // Remove group
-        groupDiv.querySelector(".remove-group").addEventListener("click", () => groupDiv.remove());
-    }
-
-    function addItem(itemBody, desc = "", qty = "", unit = "", price = "") {
-        const row = document.createElement("tr");
-        const total = price && qty ? (parseFloat(price) * parseFloat(qty)).toFixed(2) : "";
-        row.innerHTML = `
-            <td><input type="text" name="description[]" class="form-control form-control-sm" value="${desc}"></td>
-            <td><input type="number" name="qty[]" class="form-control form-control-sm qty" value="${qty}"></td>
-            <td><input type="text" name="unit[]" class="form-control form-control-sm" value="${unit}"></td>
-            <td><input type="number" name="unit_price[]" class="form-control form-control-sm unit_price" value="${price}"></td>
-            <td><input type="number" name="total_price[]" class="form-control form-control-sm total" value="${total}" readonly></td>
-            <td><button type="button" class="btn btn-sm btn-danger remove-item">🗑</button></td>
-        `;
-        itemBody.appendChild(row);
-
-        // Auto calculate total
-        row.querySelectorAll(".qty, .unit_price").forEach(inp => {
-            inp.addEventListener("input", () => {
-                const q = parseFloat(row.querySelector(".qty").value || 0);
-                const p = parseFloat(row.querySelector(".unit_price").value || 0);
-                row.querySelector(".total").value = (q * p).toFixed(2);
+            addGroupBtn.addEventListener('click', function() {
+                addGroup();
             });
-        });
 
-        row.querySelector(".remove-item").addEventListener("click", () => row.remove());
-    }
-});
-</script>
+            function addGroup(name = '', items = [{}]) {
+                const groupIndex = groupsContainer.children.length;
+                const groupDiv = document.createElement('div');
+                groupDiv.classList.add('group', 'mb-3', 'p-3', 'border');
+                groupDiv.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <input type="text" name="groups-${groupIndex}-name" class="form-control" placeholder="Group Name" value="${name}">
+                        <button type="button" class="btn btn-danger btn-sm remove-group">Remove Group</button>
+                    </div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th>Qty</th>
+                                <th>Unit</th>
+                                <th>Unit Price</th>
+                                <th>Total</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody class="items-container"></tbody>
+                    </table>
+                    <div class="text-end">
+                        <strong>Subtotal: <span class="subtotal">0.00</span></strong>
+                    </div>
+                    <button type="button" class="btn btn-success btn-sm mt-2 add-item">Add Item</button>
+                `;
+                groupsContainer.appendChild(groupDiv);
+
+                const itemsContainer = groupDiv.querySelector('.items-container');
+                items.forEach(item => {
+                    addItem(itemsContainer, groupIndex, item);
+                });
+
+                groupDiv.querySelector('.add-item').addEventListener('click', function() {
+                    addItem(itemsContainer, groupIndex);
+                });
+
+                groupDiv.querySelector('.remove-group').addEventListener('click', function() {
+                    groupDiv.remove();
+                    updateGrandTotal();
+                });
+                updateSubtotal(groupDiv);
+            }
+
+            function addItem(container, groupIndex, item = {}) {
+                const itemIndex = container.children.length;
+                const itemRow = document.createElement('tr');
+                itemRow.classList.add('item');
+
+                let unitOptions = '';
+                units.forEach(unit => {
+                    const selected = (item.item && item.item.unit && item.item.unit.id === unit.id) ? 'selected' : '';
+                    unitOptions += `<option value="${unit.name}" ${selected}>${unit.name}</option>`;
+                });
+
+                itemRow.innerHTML = `
+                    <td><input type="text" name="groups-${groupIndex}-items-${itemIndex}-description" class="form-control" placeholder="Description" value="${item.item ? item.item.name : ''}"></td>
+                    <td><input type="number" name="groups-${groupIndex}-items-${itemIndex}-qty" class="form-control qty" placeholder="Qty" value="${item.qty || 1}"></td>
+                    <td>
+                        <select name="groups-${groupIndex}-items-${itemIndex}-unit" class="form-select unit">
+                            ${unitOptions}
+                        </select>
+                    </td>
+                    <td><input type="number" name="groups-${groupIndex}-items-${itemIndex}-unit_price" class="form-control unit-price" placeholder="Unit Price" value="${(item.unit_price !== null && item.unit_price !== undefined) ? item.unit_price : (item.item ? item.item.unit_price : 0)}"></td>
+                    <td><span class="total">0.00</span></td>
+                    <td><button type="button" class="btn btn-danger btn-sm remove-item">Remove</button></td>
+                `;
+                container.appendChild(itemRow);
+
+                itemRow.querySelector('.remove-item').addEventListener('click', function() {
+                    itemRow.remove();
+                    updateSubtotal(itemRow.closest('.group'));
+                });
+
+                itemRow.querySelectorAll('.qty, .unit-price').forEach(input => {
+                    input.addEventListener('input', function() {
+                        updateItemTotal(itemRow);
+                    });
+                });
+                updateItemTotal(itemRow);
+            }
+
+            function updateItemTotal(itemRow) {
+                const qty = parseFloat(itemRow.querySelector('.qty').value) || 0;
+                const unitPrice = parseFloat(itemRow.querySelector('.unit-price').value) || 0;
+                const total = qty * unitPrice;
+                itemRow.querySelector('.total').textContent = total.toFixed(2);
+                updateSubtotal(itemRow.closest('.group'));
+            }
+
+            function updateSubtotal(groupDiv) {
+                let subtotal = 0;
+                groupDiv.querySelectorAll('.item').forEach(itemRow => {
+                    subtotal += parseFloat(itemRow.querySelector('.total').textContent) || 0;
+                });
+                groupDiv.querySelector('.subtotal').textContent = subtotal.toFixed(2);
+                updateGrandTotal();
+            }
+
+            function updateGrandTotal() {
+                let grandTotal = 0;
+                groupsContainer.querySelectorAll('.group').forEach(groupDiv => {
+                    grandTotal += parseFloat(groupDiv.querySelector('.subtotal').textContent) || 0;
+                });
+                grandTotalSpan.textContent = grandTotal.toFixed(2);
+            }
+        });
+    </script>
 {% endblock %}

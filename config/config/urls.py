@@ -23,12 +23,8 @@ from django.conf.urls.static import static # for media files
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-
-    # path('', include(('pages.urls', 'pages'), namespace='pages')),
+    path('accounts/', include('users.urls')),
     path('', include('pages.urls')),  # Home and About pages
-
-    # path('setting/', include('setting.urls')),
-    # path('post/', include('post.urls')),
 ]
 
 # Static and Media files serve (only in development)
